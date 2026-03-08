@@ -66,6 +66,10 @@ def register_user(request):
     )
 
     refresh = RefreshToken.for_user(user)
+    # Add custom claims
+    refresh['username'] = user.username
+    refresh['email'] = user.email
+    refresh['role'] = user.role
 
     return Response(
         {
@@ -100,6 +104,11 @@ def login_user(request):
 
     if user is not None:
         refresh = RefreshToken.for_user(user)
+        # Add custom claims
+        refresh['username'] = user.username
+        refresh['email'] = user.email
+        refresh['role'] = user.role
+
         return Response(
             {
                 "message": "Login successful",
