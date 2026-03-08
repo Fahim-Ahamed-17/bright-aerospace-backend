@@ -18,7 +18,7 @@ class User(AbstractUser):
     )
 
 
-     email = models.EmailField(unique=True)
+    email = models.EmailField(unique=True)
 
     def clean(self):
         super().clean()

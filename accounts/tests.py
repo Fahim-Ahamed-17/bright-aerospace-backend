@@ -64,3 +64,92 @@ class UserPasswordHashingTests(TestCase):
         self.assertNotEqual(user.password, new_password)
         self.assertTrue(user.check_password(new_password))
         self.assertFalse(user.check_password("initial"))
+
+
+from django.urls import reverse
+from rest_framework import status
+from rest_framework.test import APITestCase
+
+class RegistrationTokenTests(APITestCase):
+    """Test that the registration API returns JWT tokens."""
+
+    def test_registration_returns_tokens(self):
+        url = '/api/register/'  # Hardcoded or use reverse if named
+        data = {
+            "username": "newuser",
+            "email": "newuser@example.com",
+            "password": "Password123!",
+            "role": "student"
+        }
+        response = self.client.post(url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIn('tokens', response.data)
+        self.assertIn('access', response.data['tokens'])
+        self.assertIn('refresh', response.data['tokens'])
+        
+        # Verify that the tokens are not empty
+        self.assertTrue(len(response.data['tokens']['access']) > 0)
+        self.assertTrue(len(response.data['tokens']['refresh']) > 0)
+
+    def test_registration_duplicate_username(self):
+        # First registration
+        data = {
+            "username": "duplicate",
+            "email": "first@example.com",
+            "password": "Password123!",
+            "role": "student"
+        }
+        self.client.post('/api/register/', data, format='json')
+        
+        # Second registration with same username
+        data["email"] = "second@example.com"
+        response = self.client.post('/api/register/', data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error'], "Username already taken")
+
+
+class LoginTokenTests(APITestCase):
+    """Test that the login API authenticates users and returns JWT tokens."""
+
+    def setUp(self):
+        self.username = "loginuser"
+        self.password = "LoginPass123!"
+        self.user = User.objects.create_user(
+            username=self.username,
+            password=self.password,
+            email="login@example.com",
+            role="company"
+        )
+        self.url = '/api/login/'
+
+    def test_login_success_returns_tokens(self):
+        data = {
+            "username": self.username,
+            "password": self.password
+        }
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['username'], self.username)
+        self.assertEqual(response.data['role'], 'company')
+        self.assertIn('tokens', response.data)
+        self.assertIn('access', response.data['tokens'])
+        self.assertIn('refresh', response.data['tokens'])
+
+    def test_login_failure_invalid_credentials(self):
+        data = {
+            "username": self.username,
+            "password": "wrongpassword"
+        }
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn('error', response.data)
+        self.assertEqual(response.data['error'], "Invalid credentials")
+
+    def test_login_missing_fields(self):
+        data = {"username": self.username}
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
